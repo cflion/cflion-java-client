@@ -1,2 +1,2 @@
-# cflion-java-client
-A java client of cflion.
+# jcflion
+cflion java client.
