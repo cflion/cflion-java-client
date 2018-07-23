@@ -1,4 +1,24 @@
+# IDE
+.DS_Store
+.gradle
+.idea
+.classpath
+.project
+.settings
+.yardoc
+.yardopts
+*.versionsBackup
+*.iml
+*.ipr
+*.iws
+test-output
+test-results
+test-tmp
+*.swp
+
 # Compiled class file
+target
+out
 *.class
 
 # Log file

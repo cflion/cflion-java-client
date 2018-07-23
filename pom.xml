@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.cflion</groupId>
+    <artifactId>jcflion</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <name>jcflion</name>
+    <description>java client for cflion</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Compiler plugin -->
+        <java.compiler.version>1.8</java.compiler.version>
+        <java.compiler.source>1.8</java.compiler.source>
+        <java.compiler.target>1.8</java.compiler.target>
+        <!-- We use 3.1 until this is resolved https://jira.codehaus.org/browse/MCOMPILER-236 -->
+        <maven.compiler.plugin.version>3.1</maven.compiler.plugin.version>
+        <maven.jar.plugin.version>3.0.2</maven.jar.plugin.version>
+        <maven.source.plugin.version>3.0.1</maven.source.plugin.version>
+        <maven.resource.plugin.version>2.7</maven.resource.plugin.version>
+        <maven.javadoc.plugin.version>2.10.1</maven.javadoc.plugin.version>
+        <maven.surefire.plugin.version>2.18.1</maven.surefire.plugin.version>
+        <!-- Core -->
+        <jetcd.version>0.0.2</jetcd.version>
+        <logback.version>1.1.11</logback.version>
+        <unirest.version>1.4.9</unirest.version>
+
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.coreos</groupId>
+            <artifactId>jetcd-core</artifactId>
+            <version>${jetcd.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mashape.unirest</groupId>
+            <artifactId>unirest-java</artifactId>
+            <version>${unirest.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>jcflion</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven.source.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                            <goal>test-jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+                <configuration>
+                    <verbose>true</verbose>
+                    <fork>true</fork>
+                    <optimize>true</optimize>
+                    <compilerVersion>${java.compiler.version}</compilerVersion>
+                    <source>${java.compiler.source}</source>
+                    <target>${java.compiler.target}</target>
+                    <encoding>utf-8</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>${maven.resource.plugin.version}</version>
+                <configuration>
+                    <encoding>utf-8</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>${maven.javadoc.plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.plugin.version}</version>
+                <configuration>
+                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                    <systemPropertyVariables>
+                        <io.netty.leakDetectionLevel>PARANOID</io.netty.leakDetectionLevel>
+                    </systemPropertyVariables>
+                    <!--
+                    Memory: Needs to be small enough to run in a EC2 1.7GB small instance
+                    ArgLine: Allow using plugin injecting argLine (such as Jacoco) - notice the @{} instead of ${} to enable
+                    the late replacement.
+                    -->
+                    <argLine>-Dfile.encoding=UTF-8 -server -Xmx1200M @{surefireArgLine}</argLine>
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven.jar.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <configuration>
+                            <archive>
+                                <manifest>
+                                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                                </manifest>
+                                <!-- Generate a jar INDEX.LIST -->
+                                <index>true</index>
+                                <!-- Add the Maven coordinates in the manifest -->
+                                <manifestEntries>
+                                    <Maven-Group-Id>${project.groupId}</Maven-Group-Id>
+                                    <Maven-Artifact-Id>${project.artifactId}</Maven-Artifact-Id>
+                                    <Maven-Version>${project.version}</Maven-Version>
+                                </manifestEntries>
+                            </archive>
+                            <!-- Remove examples and docoverride -->
+                            <excludes>
+                                <exclude>/docoverride/**</exclude>
+                                <exclude>/examples/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>attach-test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    
+</project>
