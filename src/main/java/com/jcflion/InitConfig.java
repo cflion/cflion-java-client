@@ -1,15 +1,15 @@
 package com.jcflion;
 
-import com.jcflion.gray.GrayConfigManager;
-import com.jcflion.util.CollectionUtil;
-import com.jcflion.util.Constant;
-import com.jcflion.util.StringUtil;
 import com.coreos.jetcd.Client;
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.EtcdException;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.coreos.jetcd.watch.WatchResponse;
+import com.jcflion.gray.GrayConfigManager;
+import com.jcflion.util.CollectionUtil;
+import com.jcflion.util.Constant;
+import com.jcflion.util.StringUtil;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
@@ -28,9 +28,7 @@ public class InitConfig {
 
     private String app;
 
-    private String env;
-
-    private String endpoint;
+    private String managerEndpoint;
 
     private final AtomicBoolean inited = new AtomicBoolean(false);
 
@@ -38,41 +36,34 @@ public class InitConfig {
 
     }
 
-    public InitConfig(String app, String env, String endpoint) {
+    public InitConfig(String app, String managerEndpoint) {
         this.app = app;
-        this.env = env;
-        this.endpoint = endpoint;
+        this.managerEndpoint = managerEndpoint;
     }
 
     public void init() {
         if (StringUtil.isEmpty(app)) {
             app = System.getProperty(Constant.CFLION_APP_NAME, System.getenv(Constant.CFLION_APP_NAME));
         }
-        if (StringUtil.isEmpty(env)) {
-            env = System.getProperty(Constant.APP_ENV, System.getenv(Constant.APP_ENV));
+        if (StringUtil.isEmpty(managerEndpoint)) {
+            managerEndpoint = System.getProperty(Constant.CFLION_MANAGER_ENDPOINT, System.getenv(Constant.CFLION_MANAGER_ENDPOINT));
         }
-        if (StringUtil.isEmpty(endpoint)) {
-            endpoint = System.getProperty(Constant.CFLION_ENDPOINT, System.getenv(Constant.CFLION_ENDPOINT));
-        }
-        if (StringUtil.isEmpty(app) || StringUtil.isEmpty(endpoint)) {
+        if (StringUtil.isEmpty(app) || StringUtil.isEmpty(managerEndpoint)) {
             LOGGER.error("init config fail, because params: [app, endpoint] are empty");
             return;
         }
-        if (StringUtil.isEmpty(env)) {
-            env = "dev";
-        }
         String path = "/v1/watchers";
-        if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
-            endpoint = "http://" + endpoint;
+        if (!managerEndpoint.startsWith("http://") && !managerEndpoint.startsWith("https://")) {
+            managerEndpoint = "http://" + managerEndpoint;
         }
-        if (endpoint.endsWith("/")) {
+        if (managerEndpoint.endsWith("/")) {
             path = "v1/watchers";
         }
-        final String url = endpoint + path;
+        final String url = managerEndpoint + path;
         String[] etcdEndpoints = null;
         String key = null;
         try {
-            final HttpResponse<ResponseRet> resp = Unirest.get(url).queryString("app", app).queryString("env", env).asObject(ResponseRet.class);
+            final HttpResponse<ResponseRet> resp = Unirest.get(url).queryString("app", app).asObject(ResponseRet.class);
             if (resp.getStatus() == 200) {
                 final ResponseRet responseRet = resp.getBody();
                 if (null != responseRet.getData()) {
@@ -93,7 +84,7 @@ public class InitConfig {
             return;
         }
         if (!inited.compareAndSet(false, true)) {
-            LOGGER.warn("app={} env={} has already init", app, env);
+            LOGGER.warn("app={} has already init", app);
             return;
         }
         startWatch(etcdEndpoints, key);
@@ -143,12 +134,8 @@ public class InitConfig {
         this.app = app;
     }
 
-    public void setEnv(String env) {
-        this.env = env;
-    }
-
-    public void setEndpoint(String endpoint) {
-        this.endpoint = endpoint;
+    public void setManagerEndpoint(String managerEndpoint) {
+        this.managerEndpoint = managerEndpoint;
     }
 }
 
