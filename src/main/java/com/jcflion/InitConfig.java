@@ -6,16 +6,19 @@ import com.coreos.jetcd.common.exception.EtcdException;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.coreos.jetcd.watch.WatchResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.jcflion.gray.GrayConfigManager;
 import com.jcflion.util.CollectionUtil;
 import com.jcflion.util.Constant;
 import com.jcflion.util.StringUtil;
 import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -59,6 +62,26 @@ public class InitConfig {
         if (managerEndpoint.endsWith("/")) {
             path = "v1/watchers";
         }
+        Unirest.setObjectMapper(new ObjectMapper() {
+            private com.fasterxml.jackson.databind.ObjectMapper jacksonObjectMapper
+                    = new com.fasterxml.jackson.databind.ObjectMapper();
+
+            public <T> T readValue(String value, Class<T> valueType) {
+                try {
+                    return jacksonObjectMapper.readValue(value, valueType);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            public String writeValue(Object value) {
+                try {
+                    return jacksonObjectMapper.writeValueAsString(value);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
         final String url = managerEndpoint + path;
         String[] etcdEndpoints = null;
         String key = null;
@@ -92,7 +115,16 @@ public class InitConfig {
 
     public void startWatch(String[] etcdEndpoints, String key) {
         new Thread(() -> {
-            Client client = Client.builder().endpoints(etcdEndpoints).build();
+            final String[] newEtcdEndpoints = new String[etcdEndpoints.length];
+            for (int i=0; i!=etcdEndpoints.length; ++i) {
+                final String etcdEndpoint = etcdEndpoints[i];
+                if (!etcdEndpoint.startsWith("http://") && !etcdEndpoint.startsWith("https://")) {
+                    newEtcdEndpoints[i] = "http://" + etcdEndpoint;
+                } else {
+                    newEtcdEndpoints[i] = etcdEndpoint;
+                }
+            }
+            Client client = Client.builder().endpoints(newEtcdEndpoints).build();
             Watch watch = client.getWatchClient();
             Watch.Watcher watcher = watch.watch(ByteSequence.fromString(key));
             while (true) {
@@ -122,7 +154,7 @@ public class InitConfig {
                     client.close();
                     watch.close();
                     watcher.close();
-                    client = Client.builder().endpoints(etcdEndpoints).build();
+                    client = Client.builder().endpoints(newEtcdEndpoints).build();
                     watch = client.getWatchClient();
                     watcher = watch.watch(ByteSequence.fromString(key));
                 }
