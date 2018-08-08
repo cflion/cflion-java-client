@@ -4,6 +4,7 @@ import com.coreos.jetcd.Client;
 import com.coreos.jetcd.Watch;
 import com.coreos.jetcd.common.exception.EtcdException;
 import com.coreos.jetcd.data.ByteSequence;
+import com.coreos.jetcd.kv.GetResponse;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.coreos.jetcd.watch.WatchResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -19,7 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -125,6 +128,18 @@ public class InitConfig {
                 }
             }
             Client client = Client.builder().endpoints(newEtcdEndpoints).build();
+            try {
+                final GetResponse getResponse = client.getKVClient().get(ByteSequence.fromString(key)).get();
+                if (!getResponse.getKvs().isEmpty()) {
+                    final String value = getResponse.getKvs().get(0).getValue().toStringUtf8();
+                    if (StringUtil.isNotEmpty(value)) {
+                        ConfigManager.reloadConfigContent(value);
+                        GrayConfigManager.resetGrayConfigCache();
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("get error [etcd endpoints={}] [key={}]", e);
+            }
             Watch watch = client.getWatchClient();
             Watch.Watcher watcher = watch.watch(ByteSequence.fromString(key));
             while (true) {
